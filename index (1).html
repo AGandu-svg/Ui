@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Ads Engine</title>
+    
+    <!-- Telegram Web Apps SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- MONETAG HEAD SCRIPT -->
+    <!-- REPLACE 'YOUR_ZONE_ID' with your actual Monetag Zone ID -->
+    <script src="https://alwingulla.com/88/an/script.js?zoneid=YOUR_ZONE_ID" defer></script>
+
+    <style>
+        :root {
+            --tg-theme-bg-color: #f0f2f5;
+            --tg-theme-text-color: #222222;
+            --tg-theme-button-color: #2481cc;
+            --tg-theme-button-text-color: #ffffff;
+            --tg-theme-hint-color: #8e8e93;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--tg-theme-bg-color, #f0f2f5);
+            color: var(--tg-theme-text-color, #222);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 90vh;
+        }
+
+        .app-container {
+            background: #ffffff;
+            padding: 25px;
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+            width: 100%;
+            max-width: 340px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .user-tag {
+            color: var(--tg-theme-hint-color, #8e8e93);
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }
+
+        .balance-box {
+            background: linear-gradient(135deg, #2481cc, #195b92);
+            color: #ffffff;
+            padding: 22px;
+            border-radius: 18px;
+            margin-bottom: 25px;
+        }
+
+        .balance-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            opacity: 0.85;
+        }
+
+        .balance-val {
+            font-size: 36px;
+            font-weight: 800;
+            margin-top: 5px;
+        }
+
+        .btn {
+            border: none;
+            padding: 16px 20px;
+            font-size: 16px;
+            font-weight: 700;
+            border-radius: 14px;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s ease;
+            margin-bottom: 12px;
+        }
+
+        .btn-watch {
+            background-color: var(--tg-theme-button-color, #2481cc);
+            color: #ffffff;
+            box-shadow: 0 4px 15px rgba(36, 129, 204, 0.3);
+        }
+
+        .btn-withdraw {
+            background-color: #34c759;
+            color: #ffffff;
+            box-shadow: 0 4px 15px rgba(52, 199, 89, 0.3);
+        }
+
+        .btn:disabled {
+            background-color: #d1d1d6 !important;
+            color: #8e8e93 !important;
+            box-shadow: none !important;
+            cursor: not-allowed;
+        }
+
+        .timer-msg {
+            margin: -5px 0 15px 0;
+            font-size: 13px;
+            color: #ff3b30;
+            font-weight: 600;
+            display: none;
+        }
+
+        /* Error message layout for low balance */
+        .error-msg {
+            color: #ff3b30;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        /* Popup overlay for processing withdrawals */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 25px;
+            border-radius: 20px;
+            width: 85%;
+            max-width: 300px;
+            text-align: center;
+        }
+        .modal-content input {
+            width: 100%;
+            padding: 12px;
+            margin: 15px 0;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div class="user-tag" id="username-placeholder">Loading Profile...</div>
+
+        <div class="balance-box">
+            <div class="balance-title">Available Balance</div>
+            <div class="balance-val">$<span id="user-balance">0.00</span></div>
+        </div>
+
+        <!-- 1. WATCH AD BUTTON -->
+        <button class="btn btn-watch" id="watch-btn" onclick="openRealAd()">🎬 Watch Ad & Earn $0.50</button>
+        <div class="timer-msg" id="timer-box">Verifying ad view... (<span id="seconds-left">30</span>s)</div>
+
+        <!-- 2. WITHDRAW BUTTON -->
+        <button class="btn btn-withdraw" id="withdraw-btn" onclick="attemptWithdrawal()">💰 Withdraw Rewards</button>
+        
+        <!-- LOW BALANCE ALERT TEXT -->
+        <div class="error-msg" id="error-box">⚠️ Not enough money! You can only withdraw more than $5.00</div>
+    </div>
+
+    <!-- WITHDRAWAL INPUT MODAL -->
+    <div class="modal" id="withdraw-modal">
+        <div class="modal-content">
+            <h3>Withdraw Funds</h3>
+            <p style="font-size: 13px; color:#666;">Enter your payment method details (e.g., Payoneer email, Crypto wallet, WebMoney ID)</p>
+            <input type="text" id="payment-details" placeholder="Wallet address or Email address">
+            <button class="btn btn-withdraw" style="margin-bottom:8px;" onclick="submitWithdraw()">Submit Request</button>
+            <button class="btn" style="background:#e5e5ea; color:#333;" onclick="closeModal()">Cancel</button>
+        </div>
+    </div>
+
+    <!-- MONETAG BODY SCRIPT -->
+    <!-- REPLACE with your genuine Monetag Zone ID -->
+    <script data-cfasync="false" src="//alwingulla.com/a/display.php?r=YOUR_ZONE_ID" async></script>
+
+    <script>
+        // Initialize Telegram Framework
+        const telegramApp = window.Telegram.WebApp;
+        telegramApp.ready();
+        telegramApp.expand();
+
+        // Target UI Elements
+        const userTag = document.getElementById('username-placeholder');
+        const userBalanceHtml = document.getElementById('user-balance');
+        const watchButton = document.getElementById('watch-btn');
+        const withdrawButton = document.getElementById('withdraw-btn');
+        const timerContainer = document.getElementById('timer-box');
+        const secondsCounter = document.getElementById('seconds-left');
+        const modalContainer = document.getElementById('withdraw-modal');
+        const errorBox = document.getElementById('error-box');
+
+        // Dynamic State Variables
+        let trackingBalance = 0.00; 
+        const adPayout = 0.50;      // Simulated amount added to UI layout
+        const watchWindow = 30;     // Mandatory delay timer tracking setup
+        const minWithdrawLimit = 5.00;
+
+        // Load Telegram User Profile Meta
+        if (telegramApp.initDataUnsafe && telegramApp.initDataUnsafe.user) {
+            const currentProfile = telegramApp.initDataUnsafe.user;
+            userTag.textContent = `@${currentProfile.username || currentProfile.first_name}`;
+        } else {
+            userTag.textContent = "@Guest_User";
+        }
+
+        // TRIGGER REAL MONETAG ADS
+        function openRealAd() {
+            // STEP 1: Paste your unique Monetag SmartLink (Direct Link URL) here.
+            // This forces Telegram to pop up the ad on the user's screen instantly.
+            const monetagSmartLink = "https://your-smartlink-url.com"; 
+
+            if (monetagSmartLink === "https://your-smartlink-url.com") {
+                alert("Developer Note: Please replace 'https://your-smartlink-url.com' inside the code with your real Monetag SmartLink to begin receiving ad revenues.");
+                return;
+            }
+
+            // Hide the error warning box if it's currently showing
+            errorBox.style.display = 'none';
+
+            // Launches the full external Monetag ad block safely inside/outside Telegram
+            telegramApp.openLink(monetagSmartLink);
+
+            // STEP 2: Initiate the backend timer verification module
+            runAdTimer();
+        }
+
+        // TIMER OPERATION AND SIMULATED CREDIT PAYOUT
+        function runAdTimer() {
+            watchButton.disabled = true;
+            timerContainer.style.display = 'block';
+            let clockCountdown = watchWindow;
+
+            const trackingLoop = setInterval(() => {
+                clockCountdown--;
+                secondsCounter.textContent = clockCountdown;
+
+                if (clockCountdown <= 0) {
+                    clearInterval(trackingLoop);
+
+                    // Add simulated payout to layout balance
+                    trackingBalance += adPayout;
+                    userBalanceHtml.textContent = trackingBalance.toFixed(2);
+
+                    // Restore buttons & clean UI view state
+                    watchButton.disabled = false;
+                    timerContainer.style.display = 'none';
+                    secondsCounter.textContent = watchWindow;
+
+                    // Haptic feedback signal
+                    if (telegramApp.HapticFeedback) {
+                        telegramApp.HapticFeedback.notificationOccurred('success');
+                    }
+                }
+            }, 1000);
+        }
+
+        // WITHDRAWAL VALIDATION SYSTEM
+        function attemptWithdrawal() {
+            if (trackingBalance > minWithdrawLimit) {
+                errorBox.style.display = 'none';
+                modalContainer.style.display = 'flex';
+            } else {
+                // Show the on-screen error message directly under the button
+                errorBox.style.display = 'block';
+                
+                // Optional: Show native Telegram alert box as an extra warning popup
+                telegramApp.showAlert("Not enough money! You can only withdraw more than $5.00");
+                
+                if (telegramApp.HapticFeedback) {
+                    telegramApp.HapticFeedback.notificationOccurred('error');
+                }
+            }
+        }
+
+        function closeModal() {
+            modalContainer.style.display = 'none';
+        }
+
+        function submitWithdraw() {
+            const addressInput = document.getElementById('payment-details').value.trim();
+            if (!addressInput) {
+                telegramApp.showAlert("Please enter a valid payout destination address.");
+                return;
+            }
+
+            // Logic showing simulated successful request handling
+            telegramApp.showAlert(`Success! Your request to cashout $${trackingBalance.toFixed(2)} has been submitted. Funds will be verified and sent to: ${addressInput}`);
+            
+            // Deduct balance visual simulation
+            trackingBalance = 0.00;
+            userBalanceHtml.textContent = trackingBalance.toFixed(2);
+            closeModal();
+        }
+    </script>
+</body>
+</html>
